@@ -10,16 +10,16 @@ export default function AuthPage() {
   const { login, signup } = useAuth();
   const router = useRouter();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
     if (isLogin) {
-      const resp = login(formData.email, formData.password);
+      const resp = await login(formData.email, formData.password);
       if (resp.success) router.push("/");
       else setError(resp.message);
     } else {
-      const resp = signup(formData.name, formData.email, formData.password);
+      const resp = await signup(formData.name, formData.email, formData.password);
       if (resp.success) router.push("/");
       else setError(resp.message);
     }

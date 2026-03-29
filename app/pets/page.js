@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { dataService } from "@/lib/dataService";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { compressImage } from "@/lib/imageUtils";
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { 
   ssr: false,
@@ -31,55 +32,66 @@ export default function PetsPage() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user) {
-      setPets(dataService.getUserPets(user.id));
-      setNotifications(dataService.getNotifications(user.id));
-    }
+    const fetchData = async () => {
+      if (user) {
+        const userPets = await dataService.getUserPets(user.id);
+        const userNotifs = await dataService.getNotifications(user.id);
+        setPets(userPets);
+        setNotifications(userNotifs);
+      }
+    };
+    fetchData();
   }, [user]);
 
-  const handlePhotoChange = (e) => {
+  const handlePhotoChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewPet({ ...newPet, photo: reader.result });
-      };
-      reader.readAsDataURL(file);
+      try {
+        const optimizedImage = await compressImage(file);
+        setNewPet({ ...newPet, photo: optimizedImage });
+      } catch (error) {
+        console.error("Error comprimiendo imagen:", error);
+        alert("Error al procesar la imagen. Intenta con otra.");
+      }
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!user) return;
     
-    const pet = dataService.savePet(user.id, { ...newPet, status: 'safe' });
-    setPets([...pets, pet]);
-    setShowForm(false);
-    setNewPet({ name: "", type: "", breed: "", photo: null });
+    try {
+      const pet = await dataService.savePet(user.id, { ...newPet, status: 'safe' });
+      setPets([...pets, pet]);
+      setShowForm(false);
+      setNewPet({ name: "", type: "", breed: "", photo: null });
+    } catch (error) {
+      alert("Error al guardar la mascota.");
+    }
   };
 
-  const handleReportLost = (e) => {
+  const handleReportLost = async (e) => {
     e.preventDefault();
     if (!user || !showLostModal) return;
 
-    // We can use a generic update in dataService later, for now let's use direct localStorage logic if not in service
-    // Or add updatePet to service. Let's add it to service first.
-    const allPets = JSON.parse(localStorage.getItem("pets") || "[]");
-    const updatedAllPets = allPets.map(p => 
-      p.id === showLostModal.id ? { ...p, status: 'lost', lostInfo } : p
-    );
-    localStorage.setItem("pets", JSON.stringify(updatedAllPets));
+    const success = await dataService.updatePetStatus(showLostModal.id, 'lost', lostInfo);
     
-    setPets(dataService.getUserPets(user.id));
-    setShowLostModal(null);
-    setLostInfo({ date: "", location: "", notes: "" });
+    if (success) {
+      const updatedPets = await dataService.getUserPets(user.id);
+      setPets(updatedPets);
+      setShowLostModal(null);
+      setLostInfo({ date: "", location: "", coords: null, notes: "" });
+    } else {
+      alert("Error al reportar extravío.");
+    }
   };
 
-  const markAsRead = (id) => {
-    const allNotifs = JSON.parse(localStorage.getItem("notifications") || "[]");
-    const updated = allNotifs.map(n => n.id === id ? { ...n, read: true } : n);
-    localStorage.setItem("notifications", JSON.stringify(updated));
-    setNotifications(dataService.getNotifications(user.id));
+  const markAsRead = async (id) => {
+    const success = await dataService.markNotificationAsRead(id);
+    if (success) {
+      const userNotifs = await dataService.getNotifications(user.id);
+      setNotifications(userNotifs);
+    }
   };
 
   if (loading || !user) return <div style={{ textAlign: "center", padding: "4rem" }}>Cargando...</div>;

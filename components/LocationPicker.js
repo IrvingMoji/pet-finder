@@ -1,50 +1,51 @@
 "use client";
-import { useState, useEffect } from "react";
-import "leaflet/dist/leaflet.css";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
-import L from "leaflet";
+import { useState, useCallback, memo } from "react";
+import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 
-// Fix for default marker icon in Leaflet + Next.js
-const DefaultIcon = L.icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
+const containerStyle = {
+  width: '100%',
+  height: '100%'
+};
 
-function LocationMarker({ position, setPosition }) {
-  useMapEvents({
-    click(e) {
-      setPosition(e.latlng);
-    },
+const center = {
+  lat: 19.4326,
+  lng: -99.1332
+};
+
+function LocationPicker({ onLocationSelect, initialPosition = null }) {
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
   });
 
-  return position === null ? null : (
-    <Marker position={position} icon={DefaultIcon}></Marker>
-  );
-}
-
-export default function LocationPicker({ onLocationSelect, initialPosition = null }) {
   const [position, setPosition] = useState(initialPosition);
 
-  useEffect(() => {
-    if (position) {
-      onLocationSelect(position);
-    }
-  }, [position, onLocationSelect]);
+  const onClick = useCallback((e) => {
+    const newPos = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+    setPosition(newPos);
+    onLocationSelect(newPos);
+  }, [onLocationSelect]);
 
-  // Center on Mexico City by default if no initial position
-  const center = initialPosition || { lat: 19.4326, lng: -99.1332 };
-
-  return (
+  return isLoaded ? (
     <div style={{ height: "300px", width: "100%", borderRadius: "var(--radius)", overflow: "hidden", marginBottom: "1rem", border: "1px solid var(--border)" }}>
-      <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }}>
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
-        <LocationMarker position={position} setPosition={setPosition} />
-      </MapContainer>
+      <GoogleMap
+        mapContainerStyle={containerStyle}
+        center={position || center}
+        zoom={13}
+        onClick={onClick}
+        options={{
+          disableDefaultUI: false,
+          zoomControl: true,
+        }}
+      >
+        {position && <Marker position={position} />}
+      </GoogleMap>
+    </div>
+  ) : (
+    <div style={{ height: "300px", background: "#eee", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "var(--radius)" }}>
+      <p style={{ color: "#666" }}>Cargando Google Maps...</p>
     </div>
   );
 }
+
+export default memo(LocationPicker);

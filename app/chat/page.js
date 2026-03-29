@@ -2,6 +2,8 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { dataService } from "@/lib/dataService";
+
 function ChatContent() {
   const searchParams = useSearchParams();
   const withPetId = searchParams.get("with");
@@ -10,14 +12,18 @@ function ChatContent() {
   const [pet, setPet] = useState(null);
 
   useEffect(() => {
-    if (withPetId) {
-      const pets = JSON.parse(localStorage.getItem("pets") || "[]");
-      const foundPet = pets.find(p => p.id === parseInt(withPetId));
-      setPet(foundPet);
+    const fetchPetAndMessages = async () => {
+      if (withPetId) {
+        // En un escenario real buscaríamos por petId, aquí reutilizamos getAllLostPets para encontrarlo
+        const lostPets = await dataService.getAllLostPets();
+        const foundPet = lostPets.find(p => p.id === withPetId);
+        setPet(foundPet);
 
-      const savedMessages = JSON.parse(localStorage.getItem(`msgs_${withPetId}`) || "[]");
-      setMessages(savedMessages);
-    }
+        const savedMessages = JSON.parse(localStorage.getItem(`msgs_${withPetId}`) || "[]");
+        setMessages(savedMessages);
+      }
+    };
+    fetchPetAndMessages();
   }, [withPetId]);
 
   const sendMessage = (e) => {

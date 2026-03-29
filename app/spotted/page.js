@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { dataService } from "@/lib/dataService";
 import dynamic from "next/dynamic";
+import { compressImage } from "@/lib/imageUtils";
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { 
   ssr: false,
@@ -27,33 +28,36 @@ export default function SpottedPage() {
     }
   }, [user, loading, router]);
 
-  const handlePhotoChange = (e) => {
+  const handlePhotoChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSpottedPet({ ...spottedPet, photo: reader.result });
-      };
-      reader.readAsDataURL(file);
+      try {
+        const optimizedImage = await compressImage(file);
+        setSpottedPet({ ...spottedPet, photo: optimizedImage });
+      } catch (error) {
+        console.error("Error comprimiendo imagen:", error);
+        alert("Error al procesar la imagen.");
+      }
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!user) return;
     setMatching(true);
 
-    // Simulate Image Recognition Matching
-    setTimeout(() => {
-      const lostPets = dataService.getAllLostPets();
-      const spottedData = dataService.saveSpottedReport(user.id, spottedPet);
+    try {
+      // Simulate Image Recognition Matching (still mock, but source is Firestore)
+      const lostPets = await dataService.getAllLostPets();
+      const spottedData = await dataService.saveSpottedReport(user.id, spottedPet);
       
       // Mock match logic
       if (lostPets.length > 0) {
-        const match = lostPets[0];
+        const match = lostPets[0]; // For demo purposes, pick the first one
         setMatchFound(match);
         
-        dataService.saveNotification({
+        await dataService.saveNotification({
+          ownerId: match.userId, // We assumed this field in our dataService update
           ownerPetId: match.id,
           spottedId: spottedData.id,
           message: `¡Posible coincidencia! Alguien vio una mascota similar a ${match.name} en ${spottedData.location}.`,
@@ -62,8 +66,12 @@ export default function SpottedPage() {
         alert("Reporte guardado. Te avisaremos si alguien busca una mascota similar.");
         router.push("/");
       }
+    } catch (error) {
+      alert("Error al procesar el reporte. Por favor intenta de nuevo.");
+      console.error(error);
+    } finally {
       setMatching(false);
-    }, 2000);
+    }
   };
 
   if (loading || !user) return <div style={{ textAlign: "center", padding: "4rem" }}>Cargando...</div>;

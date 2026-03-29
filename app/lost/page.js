@@ -24,28 +24,31 @@ export default function LostPage() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user) {
-      const userPets = dataService.getUserPets(user.id).filter(p => p.status !== 'lost');
-      setPets(userPets);
-    }
+    const fetchPets = async () => {
+      if (user) {
+        const userPets = await dataService.getUserPets(user.id);
+        setPets(userPets.filter(p => p.status !== 'lost'));
+      }
+    };
+    fetchPets();
   }, [user]);
 
   const handleLocationSelect = useCallback((coords) => {
     setLostInfo(prev => ({ ...prev, coords }));
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!user || !selectedPet) return;
 
-    const allPets = JSON.parse(localStorage.getItem("pets") || "[]");
-    const updated = allPets.map(p => 
-      p.id === selectedPet.id ? { ...p, status: 'lost', lostInfo } : p
-    );
-    localStorage.setItem("pets", JSON.stringify(updated));
+    const success = await dataService.updatePetStatus(selectedPet.id, 'lost', lostInfo);
     
-    alert(`¡Reporte de ${selectedPet.name} creado! Te avisaremos si hay coincidencias.`);
-    router.push("/pets");
+    if (success) {
+      alert(`¡Reporte de ${selectedPet.name} creado! Te avisaremos si hay coincidencias.`);
+      router.push("/pets");
+    } else {
+      alert("Error al crear el reporte. Por favor intenta de nuevo.");
+    }
   };
 
   if (loading || !user) return <div style={{ textAlign: "center", padding: "4rem" }}>Cargando...</div>;

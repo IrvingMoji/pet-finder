@@ -1,5 +1,13 @@
 "use client";
 import { createContext, useContext, useState, useEffect } from "react";
+import { auth } from "@/lib/firebase";
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut,
+  updateProfile
+} from "firebase/auth";
 
 const AuthContext = createContext();
 
@@ -8,45 +16,46 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("petfinder_user");
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser({ 
+          id: currentUser.uid, 
+          email: currentUser.email, 
+          name: currentUser.displayName || currentUser.email.split('@')[0] 
+        });
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const login = (email, password) => {
-    const users = JSON.parse(localStorage.getItem("petfinder_users") || "[]");
-    const foundUser = users.find(u => u.email === email && u.password === password);
-    
-    if (foundUser) {
-      const sessionUser = { id: foundUser.id, email: foundUser.email, name: foundUser.name };
-      setUser(sessionUser);
-      localStorage.setItem("petfinder_user", JSON.stringify(sessionUser));
+  const login = async (email, password) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
       return { success: true };
+    } catch (error) {
+      return { success: false, message: error.message };
     }
-    return { success: false, message: "Credenciales inválidas" };
   };
 
-  const signup = (name, email, password) => {
-    const users = JSON.parse(localStorage.getItem("petfinder_users") || "[]");
-    if (users.find(u => u.email === email)) {
-      return { success: false, message: "El usuario ya existe" };
+  const signup = async (name, email, password) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(userCredential.user, { displayName: name });
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error.message };
     }
-    
-    const newUser = { id: Date.now().toString(), name, email, password };
-    users.push(newUser);
-    localStorage.setItem("petfinder_users", JSON.stringify(users));
-    
-    const sessionUser = { id: newUser.id, email: newUser.email, name: newUser.name };
-    setUser(sessionUser);
-    localStorage.setItem("petfinder_user", JSON.stringify(sessionUser));
-    return { success: true };
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("petfinder_user");
+  const logout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout error", error);
+    }
   };
 
   return (
