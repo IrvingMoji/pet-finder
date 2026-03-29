@@ -6,7 +6,9 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut,
-  updateProfile
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup
 } from "firebase/auth";
 
 const AuthContext = createContext();
@@ -21,7 +23,9 @@ export function AuthProvider({ children }) {
         setUser({ 
           id: currentUser.uid, 
           email: currentUser.email, 
-          name: currentUser.displayName || currentUser.email.split('@')[0] 
+          name: currentUser.displayName || currentUser.email.split('@')[0],
+          photo: currentUser.photoURL,
+          provider: currentUser.providerData[0]?.providerId || 'password'
         });
       } else {
         setUser(null);
@@ -50,6 +54,16 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const loginWithGoogle = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  };
+
   const logout = async () => {
     try {
       await signOut(auth);
@@ -59,7 +73,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, loginWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );

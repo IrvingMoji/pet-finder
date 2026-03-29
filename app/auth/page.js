@@ -7,7 +7,7 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState("");
-  const { login, signup } = useAuth();
+  const { login, signup, loginWithGoogle } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e) => {
@@ -23,6 +23,13 @@ export default function AuthPage() {
       if (resp.success) router.push("/");
       else setError(resp.message);
     }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError("");
+    const resp = await loginWithGoogle();
+    if (resp.success) router.push("/");
+    else setError(resp.message);
   };
 
   return (
@@ -71,6 +78,37 @@ export default function AuthPage() {
             {isLogin ? "Entrar" : "Registrarse"}
           </button>
         </form>
+
+        <div style={{ display: "flex", alignItems: "center", margin: "1.5rem 0", color: "#888" }}>
+          <hr style={{ flex: 1, border: "0", borderTop: "1px solid var(--border)" }} />
+          <span style={{ padding: "0 1rem", fontSize: "0.85rem" }}>O continúa con</span>
+          <hr style={{ flex: 1, border: "0", borderTop: "1px solid var(--border)" }} />
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "center", marginTop: "1rem" }}>
+          <button 
+            onClick={handleGoogleLogin}
+            className="btn btn-secondary" 
+            style={{ 
+              width: "50px", 
+              height: "50px", 
+              borderRadius: "50%",
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "center", 
+              padding: "0",
+              background: "white",
+              border: "1px solid var(--border)",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+              transition: "transform 0.2s"
+            }}
+            onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.05)"}
+            onMouseOut={(e) => e.currentTarget.style.transform = "scale(1)"}
+            title="Inicia sesión con Google"
+          >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: "24px" }} />
+          </button>
+        </div>
 
         <p style={{ textAlign: "center", marginTop: "2rem" }}>
           {isLogin ? "¿No tienes cuenta?" : "¿Ya tienes cuenta?"}

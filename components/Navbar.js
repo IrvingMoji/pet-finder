@@ -35,11 +35,41 @@ export default function Navbar() {
         {user && <Link href="/pets" style={{ fontWeight: "500", color: "var(--text)" }}>Mis Mascotas</Link>}
         
         {user ? (
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <span style={{ fontSize: "0.9rem", color: "var(--text-muted)" }}>Hola, {user.name}</span>
-            <button onClick={logout} className="btn btn-secondary" style={{ padding: "0.5rem 1rem" }}>
-              Salir
-            </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
+            <Link href="/profile" style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: "0.75rem", 
+              textDecoration: "none",
+              background: "rgba(255, 71, 87, 0.05)",
+              padding: "0.4rem 0.8rem",
+              borderRadius: "2rem",
+              border: "1px solid rgba(255, 71, 87, 0.1)",
+              transition: "all 0.2s"
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = "rgba(255, 71, 87, 0.1)"}
+            onMouseOut={(e) => e.currentTarget.style.background = "rgba(255, 71, 87, 0.05)"}
+            >
+              {user.photo ? (
+                <img src={user.photo} alt={user.name} style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} />
+              ) : (
+                <div style={{ 
+                  width: "32px", 
+                  height: "32px", 
+                  borderRadius: "50%", 
+                  background: "var(--primary)", 
+                  color: "white", 
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "center", 
+                  fontSize: "0.85rem",
+                  fontWeight: "bold" 
+                }}>
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span style={{ fontSize: "0.9rem", fontWeight: "600", color: "var(--text)" }}>{user.name}</span>
+            </Link>
           </div>
         ) : (
           <Link href="/auth" className="btn btn-primary" style={{ padding: "0.5rem 1rem" }}>
