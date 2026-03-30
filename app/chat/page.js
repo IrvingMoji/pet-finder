@@ -1,119 +1,319 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { dataService } from "@/lib/dataService";
+import { useRouter, useSearchParams } from "next/navigation";
 
 function ChatContent() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const withPetId = searchParams.get("with");
+  const targetUserId = searchParams.get("with");
+  
+  const [chats, setChats] = useState([]);
+  const [userProfiles, setUserProfiles] = useState({});
+  const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const [pet, setPet] = useState(null);
+  const [sharedPhotos, setSharedPhotos] = useState([]);
+  const [showGallery, setShowGallery] = useState(false);
+  const messagesEndRef = useRef(null);
 
+  // Redirección si no hay sesión
   useEffect(() => {
-    const fetchPetAndMessages = async () => {
-      if (withPetId) {
-        // En un escenario real buscaríamos por petId, aquí reutilizamos getAllLostPets para encontrarlo
-        const lostPets = await dataService.getAllLostPets();
-        const foundPet = lostPets.find(p => p.id === withPetId);
-        setPet(foundPet);
+    if (!loading && !user) router.push("/auth");
+  }, [user, loading, router]);
 
-        const savedMessages = JSON.parse(localStorage.getItem(`msgs_${withPetId}`) || "[]");
-        setMessages(savedMessages);
+  // Escuchar lista de chats del usuario
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = dataService.listenToUserChats(user.id, (userChats) => {
+      setChats(userChats);
+      
+      // Obtener perfiles de los otros participantes
+      userChats.forEach(chat => {
+        const otherId = chat.participants.find(id => id !== user.id);
+        if (otherId && !userProfiles[otherId]) {
+          dataService.getUserProfile(otherId).then(profile => {
+            if (profile) {
+              setUserProfiles(prev => ({ ...prev, [otherId]: profile }));
+            }
+          });
+        }
+      });
+
+      // Si venimos de un enlace "with", buscar o crear el chat
+      if (targetUserId && !activeChat) {
+        const existingChat = userChats.find(c => c.participants.includes(targetUserId));
+        if (existingChat) {
+          setActiveChat(existingChat);
+        } else {
+          // Crear chat si no existe
+          dataService.getOrCreateChat(user.id, targetUserId).then(newChat => {
+            setActiveChat(newChat);
+          });
+        }
       }
-    };
-    fetchPetAndMessages();
-  }, [withPetId]);
+    });
+    return () => unsubscribe();
+  }, [user, targetUserId, activeChat, userProfiles]);
 
-  const sendMessage = (e) => {
+  // Escuchar mensajes del chat activo
+  useEffect(() => {
+    if (!activeChat) return;
+    const unsubscribe = dataService.listenToMessages(activeChat.id, (msgs) => {
+      setMessages(msgs);
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    });
+    return () => unsubscribe();
+  }, [activeChat]);
+
+  // Recuperar fotos compartidas entre los usuarios
+  useEffect(() => {
+    if (activeChat && user) {
+      const otherId = activeChat.participants.find(id => id !== user.id);
+      dataService.getSharedPhotos(user.id, otherId).then(setSharedPhotos);
+    } else {
+      setSharedPhotos([]);
+    }
+  }, [activeChat, user]);
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
-
-    const msg = {
-      id: Date.now(),
-      text: newMessage,
-      sender: 'reporter', // Simulation: current user is the reporter
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    const updated = [...messages, msg];
-    setMessages(updated);
-    localStorage.setItem(`msgs_${withPetId}`, JSON.stringify(updated));
+    if (!newMessage.trim() || !activeChat || !user) return;
+    
+    const text = newMessage;
     setNewMessage("");
-
-    // Simulate auto-reply from owner
-    setTimeout(() => {
-      const reply = {
-        id: Date.now() + 1,
-        text: "¡Hola! Muchísimas gracias por contactar. ¿Podrías darme más detalles de dónde lo viste exactamente?",
-        sender: 'owner',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      const final = [...updated, reply];
-      setMessages(final);
-      localStorage.setItem(`msgs_${withPetId}`, JSON.stringify(final));
-    }, 1500);
+    await dataService.sendMessage(activeChat.id, user.id, text);
   };
 
-  if (!pet) return <main><p>Cargando chat...</p></main>;
+  const getUserName = (userId) => userProfiles[userId]?.name || `Usuario ${userId?.substring(0, 5)}...`;
+  const getUserPhoto = (userId) => userProfiles[userId]?.photo || null;
+
+  if (loading || !user) return <div style={{ padding: "4rem", textAlign: "center" }}>Cargando...</div>;
 
   return (
-    <main style={{ maxWidth: "600px", height: "calc(100vh - 100px)", display: "flex", flexDirection: "column" }}>
-      <header style={{ display: "flex", alignItems: "center", gap: "1rem", borderBottom: "1px solid var(--border)", paddingBottom: "1rem" }}>
-        <img src={pet.photo} alt={pet.name} style={{ width: "50px", height: "50px", borderRadius: "50%", objectFit: "cover" }} />
-        <div>
-          <h2 style={{ margin: 0 }}>Dueño de {pet.name}</h2>
-          <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--secondary)" }}>En línea</p>
+    <main style={{ 
+      display: "grid", 
+      gridTemplateColumns: "300px 1fr", 
+      height: "calc(100vh - 120px)", 
+      gap: "1.5rem",
+      background: "var(--background)",
+      padding: "1rem",
+      maxWidth: "1200px",
+      margin: "0 auto"
+    }}>
+      {/* Sidebar - Lista de Chats */}
+      <section className="card" style={{ padding: 0, overflowY: "auto", display: "flex", flexDirection: "column", border: "1px solid var(--border)" }}>
+        <h2 style={{ padding: "1.5rem", borderBottom: "1px solid var(--border)", margin: 0, fontSize: "1.2rem" }}>Mensajes</h2>
+        <div style={{ flex: 1 }}>
+          {chats.length === 0 ? (
+            <div style={{ padding: "3rem 1.5rem", textAlign: "center", color: "var(--text-light)" }}>
+              <div style={{ fontSize: "2rem", marginBottom: "1rem" }}>💬</div>
+              <p style={{ fontSize: "0.9rem" }}>No tienes conversaciones activas.</p>
+            </div>
+          ) : (
+            chats.map(chat => {
+              const otherId = chat.participants.find(id => id !== user.id);
+              const profile = userProfiles[otherId];
+              return (
+                <div 
+                  key={chat.id} 
+                  onClick={() => setActiveChat(chat)}
+                  style={{ 
+                    padding: "1.2rem 1.5rem", 
+                    cursor: "pointer", 
+                    borderBottom: "1px solid var(--border)",
+                    background: activeChat?.id === chat.id ? "rgba(255, 107, 107, 0.08)" : "transparent",
+                    transition: "all 0.2s",
+                    display: "flex",
+                    gap: "1rem",
+                    alignItems: "center"
+                  }}
+                >
+                  <div style={{ 
+                    width: "45px", 
+                    height: "45px", 
+                    borderRadius: "50%", 
+                    background: "var(--secondary)", 
+                    overflow: "hidden",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "white"
+                  }}>
+                    {profile?.photo ? (
+                      <img 
+                        src={profile.photo} 
+                        alt="Avatar" 
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                        onError={(e) => { 
+                          e.target.onerror = null; 
+                          e.target.src = `https://ui-avatars.com/api/?name=${profile?.name || "?"}&background=FF6B6B&color=fff`; 
+                        }}
+                      />
+                    ) : (
+                      profile?.name?.charAt(0) || "?"
+                    )}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                      <span style={{ fontWeight: "700", fontSize: "0.95rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {profile?.name || `Usuario ${otherId.substring(0, 5)}...`}
+                      </span>
+                    </div>
+                    <p style={{ 
+                      margin: 0, 
+                      fontSize: "0.85rem", 
+                      color: "var(--text-light)", 
+                      whiteSpace: "nowrap", 
+                      overflow: "hidden", 
+                      textOverflow: "ellipsis" 
+                    }}>
+                      {chat.lastMessage || "Empezar chat..."}
+                    </p>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
-      </header>
+      </section>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "1.5rem 0", display: "flex", flexDirection: "column", gap: "1rem" }}>
-        {messages.length === 0 && (
-          <p style={{ textAlign: "center", color: "var(--text-light)" }}>Inicia la conversación para ayudar a {pet.name}.</p>
-        )}
-        {messages.map(msg => (
-          <div key={msg.id} style={{
-            alignSelf: msg.sender === 'reporter' ? 'flex-end' : 'flex-start',
-            maxWidth: "80%",
-            background: msg.sender === 'reporter' ? 'var(--primary)' : 'var(--surface)',
-            color: msg.sender === 'reporter' ? 'white' : 'var(--text)',
-            padding: "0.75rem 1rem",
-            borderRadius: msg.sender === 'reporter' ? "15px 15px 0 15px" : "15px 15px 15px 0",
-            boxShadow: "var(--shadow)",
-            position: "relative"
-          }}>
-            {msg.text}
-            <span style={{ 
-              fontSize: "0.65rem", 
-              position: "absolute", 
-              bottom: "-1.2rem", 
-              right: msg.sender === 'reporter' ? "0" : "auto",
-              left: msg.sender === 'owner' ? "0" : "auto",
-              color: "var(--text-light)" 
+      {/* Ventana de Chat */}
+      <section className="card" style={{ padding: 0, display: "flex", flexDirection: "column", background: "white", border: "1px solid var(--border)" }}>
+        {activeChat ? (
+          <>
+            <header style={{ padding: "1rem 1.5rem", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "1rem", background: "#fcfcfc" }}>
+              <div style={{ width: "45px", height: "45px", borderRadius: "50%", background: "var(--primary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", overflow: "hidden" }}>
+                {getUserPhoto(activeChat.participants.find(id => id !== user.id)) ? (
+                  <img 
+                    src={getUserPhoto(activeChat.participants.find(id => id !== user.id))} 
+                    alt="Avatar" 
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                    onError={(e) => { 
+                      e.target.onerror = null; 
+                      e.target.src = `https://ui-avatars.com/api/?name=${getUserName(activeChat.participants.find(id => id !== user.id))}&background=FF6B6B&color=fff`; 
+                    }}
+                  />
+                ) : (
+                  getUserName(activeChat.participants.find(id => id !== user.id)).charAt(0)
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "700" }}>{getUserName(activeChat.participants.find(id => id !== user.id))}</h3>
+                <span style={{ fontSize: "0.75rem", color: "#2ecc71", fontWeight: "600" }}>● En línea</span>
+              </div>
+              {sharedPhotos.length > 0 && (
+                <button 
+                  className="btn" 
+                  style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 1rem", fontSize: "0.85rem", border: "1px solid var(--secondary)", background: "white", color: "var(--secondary)", fontWeight: "600", borderRadius: "8px" }}
+                  onClick={() => setShowGallery(true)}
+                >
+                  📸 Galería ({sharedPhotos.length})
+                </button>
+              )}
+            </header>
+
+            {/* Mensajes */}
+            <div style={{ 
+              flex: 1, 
+              padding: "2rem", 
+              overflowY: "auto", 
+              display: "flex", 
+              flexDirection: "column", 
+              gap: "1.2rem",
+              background: "#fafafa" 
             }}>
-              {msg.timestamp}
-            </span>
-          </div>
-        ))}
-      </div>
+              {messages.map((msg, i) => {
+                const isMine = msg.senderId === user.id;
+                return (
+                  <div key={i} style={{ 
+                    alignSelf: isMine ? "flex-end" : "flex-start",
+                    maxWidth: "75%",
+                    padding: "0.8rem 1.2rem",
+                    borderRadius: isMine ? "20px 20px 2px 20px" : "20px 20px 20px 2px",
+                    background: isMine ? "var(--primary)" : "white",
+                    color: isMine ? "white" : "var(--text)",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                    border: isMine ? "none" : "1px solid #eee"
+                  }}>
+                    <p style={{ margin: 0, fontSize: "0.95rem", lineHeight: "1.4" }}>{msg.text}</p>
+                    <span style={{ fontSize: "0.65rem", opacity: 0.7, marginTop: "0.4rem", display: "block", textAlign: "right" }}>
+                      {msg.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
 
-      <form onSubmit={sendMessage} style={{ display: "flex", gap: "0.5rem", padding: "1rem 0" }}>
-        <input 
-          className="input" 
-          placeholder="Escribe un mensaje..." 
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-        />
-        <button type="submit" className="btn btn-primary">Enviar</button>
-      </form>
+            {/* Input Form */}
+            <form onSubmit={handleSendMessage} style={{ padding: "1.5rem", borderTop: "1px solid var(--border)", display: "flex", gap: "1rem", background: "white" }}>
+              <input 
+                className="input"
+                type="text" 
+                placeholder="Escribe un mensaje..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                style={{ flex: 1, height: "50px", borderRadius: "25px", padding: "0 1.5rem" }}
+              />
+              <button type="submit" className="btn btn-primary" style={{ padding: "0 2rem", borderRadius: "25px" }}>
+                Enviar
+              </button>
+            </form>
+          </>
+        ) : (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--text-light)", padding: "2rem", textAlign: "center" }}>
+            <div style={{ fontSize: "4rem", marginBottom: "1.5rem" }}>📬</div>
+            <h3>Tu bandeja de mensajes</h3>
+            <p>Selecciona una conversación del lateral para empezar a chatear en tiempo real con otros usuarios de Pet Finder.</p>
+          </div>
+        )}
+      </section>
+
+      {/* Modal de Galería */}
+      {showGallery && (
+        <div style={{
+          position: "fixed",
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.85)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+          padding: "2rem"
+        }}>
+          <div style={{ position: "relative", maxWidth: "800px", width: "100%", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+            <button 
+              onClick={() => setShowGallery(false)}
+              style={{ position: "absolute", top: "-40px", right: "0", background: "none", border: "none", color: "white", fontSize: "2rem", cursor: "pointer", padding: "0" }}
+            >
+              &times;
+            </button>
+            <div style={{ display: "flex", gap: "1rem", overflowX: "auto", paddingBottom: "1rem", scrollSnapType: "x mandatory", msOverflowStyle: "none", scrollbarWidth: "none" }}>
+              {sharedPhotos.map((photo, idx) => (
+                <div key={photo.id || idx} style={{ minWidth: "100%", scrollSnapAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <img src={photo.url} alt="Evidencia de Avistamiento" style={{ maxWidth: "100%", maxHeight: "75vh", objectFit: "contain", borderRadius: "8px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }} />
+                  <span style={{ color: "white", marginTop: "1rem", fontSize: "0.9rem", opacity: 0.8 }}>
+                    {photo.date ? photo.date.toLocaleString() : "Avistamiento reportado"}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {sharedPhotos.length > 1 && (
+              <p style={{ color: "white", textAlign: "center", marginTop: "0.5rem", opacity: 0.6, fontSize: "0.85rem" }}>Desliza lateralmente para ver más fotos</p>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
 
 export default function ChatPage() {
   return (
-    <Suspense fallback={<p>Cargando...</p>}>
+    <Suspense fallback={<div style={{ padding: "4rem", textAlign: "center" }}>Cargando componentes...</div>}>
       <ChatContent />
     </Suspense>
   );

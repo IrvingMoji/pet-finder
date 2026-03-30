@@ -17,6 +17,8 @@ export default function SpottedPage() {
   const [spottedPet, setSpottedPet] = useState({ photo: null, location: "", coords: null, notes: "" });
   const [matching, setMatching] = useState(false);
   const [matchFound, setMatchFound] = useState(null);
+  const [viewMode, setViewMode] = useState("form");
+  const [myReports, setMyReports] = useState([]);
 
   const handleLocationSelect = useCallback((coords) => {
     setSpottedPet(prev => ({ ...prev, coords }));
@@ -27,6 +29,12 @@ export default function SpottedPage() {
       router.push("/auth");
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    if (user && viewMode === "history") {
+      dataService.getUserSpottedReports(user.id).then(setMyReports);
+    }
+  }, [user, viewMode]);
 
   const handlePhotoChange = async (e) => {
     const file = e.target.files[0];
@@ -56,9 +64,16 @@ export default function SpottedPage() {
         const match = lostPets[0]; // For demo purposes, pick the first one
         setMatchFound(match);
         
+        await dataService.updateSpottedReportMatch(spottedData.id, {
+          matchOwnerId: match.userId,
+          matchPetName: match.name,
+          matchPetId: match.id,
+        });
+        
         await dataService.saveNotification({
-          ownerId: match.userId, // We assumed this field in our dataService update
+          ownerId: match.userId,
           ownerPetId: match.id,
+          reporterId: user.id, // El ID del usuario actual que reporta el avistamiento
           spottedId: spottedData.id,
           message: `¡Posible coincidencia! Alguien vio una mascota similar a ${match.name} en ${spottedData.location}.`,
         });
@@ -77,12 +92,75 @@ export default function SpottedPage() {
   if (loading || !user) return <div style={{ textAlign: "center", padding: "4rem" }}>Cargando...</div>;
 
   return (
-    <main style={{ maxWidth: "600px" }}>
-      <h1>¿Viste una Mascota?</h1>
-      <p>Tu reporte puede ayudar a que una mascota regrese a su hogar.</p>
+    <main style={{ maxWidth: "600px", margin: "0 auto" }}>
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+        <h1>Avistamientos</h1>
+      </header>
 
-      <section className="card" style={{ marginTop: "2rem" }}>
-        {matching ? (
+      <div style={{ display: "flex", gap: "1rem", marginBottom: "2rem" }}>
+        <button 
+          className={`btn ${viewMode === 'form' ? 'btn-primary' : 'btn-secondary'}`} 
+          style={{ flex: 1, padding: "0.8rem", background: viewMode === 'form' ? 'var(--primary)' : 'transparent', color: viewMode === 'form' ? 'white' : 'var(--primary)', border: '1px solid var(--primary)' }}
+          onClick={() => { setViewMode('form'); setMatchFound(null); }}
+        >
+          Nuevo Reporte
+        </button>
+        <button 
+          className={`btn ${viewMode === 'history' ? 'btn-primary' : 'btn-secondary'}`} 
+          style={{ flex: 1, padding: "0.8rem", background: viewMode === 'history' ? 'var(--primary)' : 'transparent', color: viewMode === 'history' ? 'white' : 'var(--primary)', border: '1px solid var(--primary)' }}
+          onClick={() => setViewMode('history')}
+        >
+          Mis Reportes
+        </button>
+      </div>
+
+      <section className={viewMode === 'form' ? "card" : ""} style={{ marginTop: "1rem" }}>
+        {viewMode === 'history' ? (
+          <div>
+            {myReports.length === 0 ? (
+              <div className="card" style={{ textAlign: "center", padding: "4rem" }}>
+                <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🐾</div>
+                <p>Aún no has hecho reportes de avistamientos.</p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                {myReports.map(report => (
+                  <div key={report.id} className="card" style={{ padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    <div style={{ display: "flex", gap: "1rem" }}>
+                      {report.photo && (
+                        <div style={{ width: "80px", height: "80px", flexShrink: 0, borderRadius: "12px", overflow: "hidden" }}>
+                          <img src={report.photo} alt="Avistamiento" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        </div>
+                      )}
+                      <div>
+                        <p style={{ margin: "0 0 0.5rem 0", fontWeight: "600", color: "var(--text)" }}>📍 {report.location}</p>
+                        <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-light)" }}>Fecha: {new Date(report.createdAt).toLocaleDateString()}</p>
+                        {report.notes && (
+                          <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.85rem", fontStyle: "italic", color: "var(--text-light)" }}>"{report.notes}"</p>
+                        )}
+                      </div>
+                    </div>
+                    {report.matchInfo && (
+                      <div style={{ background: "#f8f9fa", padding: "1rem", borderRadius: "8px", borderLeft: "3px solid var(--secondary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: "700", color: "var(--secondary)", textTransform: "uppercase" }}>Posible Coincidencia</p>
+                          <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.9rem", color: "var(--text)" }}>Parecido a <strong>{report.matchInfo.matchPetName}</strong></p>
+                        </div>
+                        <button 
+                          className="btn btn-primary" 
+                          style={{ padding: "0.5rem 1rem", fontSize: "0.85rem" }}
+                          onClick={() => router.push(`/chat?with=${report.matchInfo.matchOwnerId}`)}
+                        >
+                          Chat Dueño
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : matching ? (
           <div style={{ textAlign: "center", padding: "3rem" }}>
             <div style={{ fontSize: "3rem", animation: "pulse 1.5s infinite" }}>🔍</div>
             <h3>Analizando imagen...</h3>
@@ -104,7 +182,7 @@ export default function SpottedPage() {
               <button 
                 className="btn btn-primary" 
                 style={{ flex: 1 }}
-                onClick={() => router.push(`/chat?with=${matchFound.id}`)}
+                onClick={() => router.push(`/chat?with=${matchFound.userId}`)}
               >
                 Contactar al Dueño
               </button>

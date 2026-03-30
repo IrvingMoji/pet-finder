@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { dataService } from "@/lib/dataService";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import { compressImage } from "@/lib/imageUtils";
 
@@ -86,6 +87,17 @@ export default function PetsPage() {
     }
   };
 
+  const handleMarkFound = async (petId) => {
+    if (!user) return;
+    const success = await dataService.updatePetStatus(petId, 'safe');
+    if (success) {
+      const updatedPets = await dataService.getUserPets(user.id);
+      setPets(updatedPets);
+    } else {
+      alert("Error al actualizar el estado.");
+    }
+  };
+
   const markAsRead = async (id) => {
     const success = await dataService.markNotificationAsRead(id);
     if (success) {
@@ -121,9 +133,9 @@ export default function PetsPage() {
                   <p style={{ margin: 0, fontWeight: n.read ? "400" : "600", color: "var(--text)" }}>{n.message}</p>
                 </div>
                 <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-                  <a href={`/chat?with=${n.ownerPetId}`} className="btn btn-secondary" style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem" }}>
+                  <Link href={`/chat?with=${n.reporterId}`} className="btn btn-secondary" style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem", textDecoration: "none" }}>
                     Ir al Chat
-                  </a>
+                  </Link>
                   {!n.read && (
                     <button onClick={() => markAsRead(n.id)} style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", fontWeight: "600" }}>
                       Marcar como leída
@@ -228,8 +240,38 @@ export default function PetsPage() {
                     Reportar Extravío
                   </button>
                 ) : (
-                  <div style={{ marginTop: "1rem", padding: "0.5rem", background: "#FFEAA7", borderRadius: "8px", fontSize: "0.9rem" }}>
-                    📍 Reportado en: {pet.lostInfo.location}
+                  <div style={{ marginTop: "1rem" }}>
+                    <div style={{ padding: "0.5rem", background: "#FFEAA7", borderRadius: "8px", fontSize: "0.85rem", marginBottom: "0.5rem", borderLeft: "3px solid #F1C40F" }}>
+                      📍 Última vez en: {pet.lostInfo.location}
+                    </div>
+                    <button 
+                      className="btn" 
+                      style={{ width: "100%", background: "#2ecc71", color: "white" }}
+                      onClick={() => handleMarkFound(pet.id)}
+                    >
+                      🏁 ¡La encontré!
+                    </button>
+                  </div>
+                )}
+
+                {pet.history && pet.history.length > 0 && (
+                  <div style={{ marginTop: "1.5rem", borderTop: "1px dashed var(--border)", paddingTop: "1rem" }}>
+                    <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: "700", color: "var(--text-light)", textTransform: "uppercase" }}>
+                      📜 Historial
+                    </p>
+                    <div style={{ maxHeight: "150px", overflowY: "auto", marginTop: "0.5rem" }}>
+                      {pet.history.map((event, idx) => (
+                        <div key={idx} style={{ fontSize: "0.75rem", color: "var(--text-light)", marginBottom: "0.5rem", background: "#f8f9fa", padding: "0.6rem", borderRadius: "8px", border: "1px solid var(--border)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "600", color: "var(--text)" }}>
+                            <span>Perdida: {event.lostDate}</span>
+                            <span>Hallada: {event.foundDate}</span>
+                          </div>
+                          <div style={{ fontSize: "0.7rem", opacity: 0.8, marginTop: "0.2rem" }}>
+                            📍 {event.location}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

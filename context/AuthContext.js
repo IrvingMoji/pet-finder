@@ -11,6 +11,8 @@ import {
   signInWithPopup
 } from "firebase/auth";
 
+import { dataService } from "@/lib/dataService";
+
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
@@ -18,15 +20,18 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        setUser({ 
+        const userData = { 
           id: currentUser.uid, 
           email: currentUser.email, 
           name: currentUser.displayName || currentUser.email.split('@')[0],
           photo: currentUser.photoURL,
           provider: currentUser.providerData[0]?.providerId || 'password'
-        });
+        };
+        setUser(userData);
+        // Sincronizar perfil con Firestore para que otros lo vean en el chat
+        await dataService.syncUserProfile(currentUser.uid, userData);
       } else {
         setUser(null);
       }
