@@ -238,8 +238,8 @@ function ChatContent() {
                     boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
                     border: isMine ? "none" : "1px solid #eee"
                   }}>
-                    <p style={{ margin: 0, fontSize: "0.95rem", lineHeight: "1.4" }}>{msg.text}</p>
-                    <span style={{ fontSize: "0.65rem", opacity: 0.7, marginTop: "0.4rem", display: "block", textAlign: "right" }}>
+                    <p style={{ margin: 0, fontSize: "0.95rem", lineHeight: "1.4", color: "inherit" }}>{msg.text}</p>
+                    <span style={{ fontSize: "0.65rem", opacity: 0.8, marginTop: "0.4rem", display: "block", textAlign: "right", color: "inherit" }}>
                       {msg.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>

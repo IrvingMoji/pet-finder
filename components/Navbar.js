@@ -30,9 +30,10 @@ export default function Navbar() {
       </Link>
       
       <div style={{ display: "flex", gap: "1.5rem", alignItems: "center" }}>
-        <Link href="/lost" style={{ fontWeight: "500", color: "var(--text)" }}>Reportar Extravío</Link>
-        <Link href="/spotted" style={{ fontWeight: "500", color: "var(--text)" }}>Vi una Mascota</Link>
-        {user && <Link href="/pets" style={{ fontWeight: "500", color: "var(--text)" }}>Mis Mascotas</Link>}
+        <Link href="/lost" style={{ fontWeight: "500", color: "var(--text)", textDecoration: "none" }}>Reportar Extravío</Link>
+        <Link href="/spotted" style={{ fontWeight: "500", color: "var(--text)", textDecoration: "none" }}>Vi una Mascota</Link>
+        {user && <Link href="/pets" style={{ fontWeight: "500", color: "var(--text)", textDecoration: "none" }}>Mis Mascotas</Link>}
+        {user && <Link href="/chat" style={{ fontWeight: "500", color: "var(--text)", textDecoration: "none" }}>Mensajes</Link>}
         
         {user ? (
           <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
