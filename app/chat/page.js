@@ -24,6 +24,16 @@ function ChatContent() {
     if (!loading && !user) router.push("/auth");
   }, [user, loading, router]);
 
+  // Lógica CSS Global para ocultar Navbar en móvil cuando el chat está activo
+  useEffect(() => {
+    if (activeChat) {
+      document.body.classList.add("chat-active");
+    } else {
+      document.body.classList.remove("chat-active");
+    }
+    return () => document.body.classList.remove("chat-active");
+  }, [activeChat]);
+
   // Escuchar lista de chats del usuario
   useEffect(() => {
     if (!user) return;
@@ -93,18 +103,10 @@ function ChatContent() {
   if (loading || !user) return <div style={{ padding: "4rem", textAlign: "center" }}>Cargando...</div>;
 
   return (
-    <main style={{ 
-      display: "grid", 
-      gridTemplateColumns: "300px 1fr", 
-      height: "calc(100vh - 120px)", 
-      gap: "1.5rem",
-      background: "var(--background)",
-      padding: "1rem",
-      maxWidth: "1200px",
-      margin: "0 auto"
-    }}>
+    <main className="chat-container">
       {/* Sidebar - Lista de Chats */}
-      <section className="card" style={{ padding: 0, overflowY: "auto", display: "flex", flexDirection: "column", border: "1px solid var(--border)" }}>
+      <div className={`chat-sidebar-wrapper ${activeChat ? 'mobile-hidden' : ''}`}>
+        <section className="card" style={{ padding: 0, overflowY: "auto", display: "flex", flexDirection: "column", border: "1px solid var(--border)", flex: 1 }}>
         <h2 style={{ padding: "1.5rem", borderBottom: "1px solid var(--border)", margin: 0, fontSize: "1.2rem" }}>Mensajes</h2>
         <div style={{ flex: 1 }}>
           {chats.length === 0 ? (
@@ -178,14 +180,23 @@ function ChatContent() {
             })
           )}
         </div>
-      </section>
+        </section>
+      </div>
 
       {/* Ventana de Chat */}
-      <section className="card" style={{ padding: 0, display: "flex", flexDirection: "column", background: "white", border: "1px solid var(--border)" }}>
-        {activeChat ? (
-          <>
-            <header style={{ padding: "1rem 1.5rem", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "1rem", background: "#fcfcfc" }}>
-              <div style={{ width: "45px", height: "45px", borderRadius: "50%", background: "var(--primary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", overflow: "hidden" }}>
+      <div className={`chat-window-wrapper ${!activeChat ? 'mobile-hidden' : ''}`}>
+        <section className="card" style={{ padding: 0, display: "flex", flexDirection: "column", background: "white", border: "1px solid var(--border)", flex: 1 }}>
+          {activeChat ? (
+            <>
+              <header style={{ position: "sticky", top: 0, zIndex: 10, padding: "1rem 1.5rem", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "1rem", background: "#fcfcfc" }}>
+                <button 
+                  className="mobile-only"
+                  style={{ background: "transparent", border: "none", fontSize: "1.5rem", color: "var(--text-light)", padding: "0 0.5rem 0 0", cursor: "pointer", display: "flex", alignItems: "center" }}
+                  onClick={() => setActiveChat(null)}
+                >
+                  <svg viewBox="0 0 24 24" style={{ width: "24px", height: "24px", fill: "currentColor" }}><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <div style={{ width: "45px", height: "45px", flexShrink: 0, borderRadius: "50%", background: "var(--primary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", overflow: "hidden" }}>
                 {getUserPhoto(activeChat.participants.find(id => id !== user.id)) ? (
                   <img 
                     src={getUserPhoto(activeChat.participants.find(id => id !== user.id))} 
@@ -270,7 +281,8 @@ function ChatContent() {
             <p>Selecciona una conversación del lateral para empezar a chatear en tiempo real con otros usuarios de Pet Finder.</p>
           </div>
         )}
-      </section>
+        </section>
+      </div>
 
       {/* Modal de Galería */}
       {showGallery && (
