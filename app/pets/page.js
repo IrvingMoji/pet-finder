@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { dataService } from "@/lib/dataService";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import dynamic from "next/dynamic";
 import { compressImage } from "@/lib/imageUtils";
 
@@ -16,7 +15,6 @@ export default function PetsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [pets, setPets] = useState([]);
-  const [notifications, setNotifications] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [showLostModal, setShowLostModal] = useState(null);
   const [lostInfo, setLostInfo] = useState({ date: "", location: "", coords: null, notes: "" });
@@ -36,9 +34,7 @@ export default function PetsPage() {
     const fetchData = async () => {
       if (user) {
         const userPets = await dataService.getUserPets(user.id);
-        const userNotifs = await dataService.getNotifications(user.id);
         setPets(userPets);
-        setNotifications(userNotifs);
       }
     };
     fetchData();
@@ -98,13 +94,6 @@ export default function PetsPage() {
     }
   };
 
-  const markAsRead = async (id) => {
-    const success = await dataService.markNotificationAsRead(id);
-    if (success) {
-      const userNotifs = await dataService.getNotifications(user.id);
-      setNotifications(userNotifs);
-    }
-  };
 
   if (loading || !user) return <div style={{ textAlign: "center", padding: "4rem" }}>Cargando...</div>;
 
@@ -116,37 +105,6 @@ export default function PetsPage() {
           {showForm ? "Cancelar" : "Registrar Mascota"}
         </button>
       </header>
-
-      {notifications.length > 0 && (
-        <section style={{ marginBottom: "3rem" }}>
-          <h2>Notificaciones</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            {notifications.map(n => (
-              <div key={n.id} className="card" style={{ 
-                borderLeft: n.read ? "1px solid var(--border)" : "5px solid var(--primary)",
-                background: n.read ? "var(--surface)" : "#FFF5F5",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center"
-              }}>
-                <div>
-                  <p style={{ margin: 0, fontWeight: n.read ? "400" : "600", color: "var(--text)" }}>{n.message}</p>
-                </div>
-                <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-                  <Link href={`/chat?with=${n.reporterId}`} className="btn btn-secondary" style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem", textDecoration: "none" }}>
-                    Ir al Chat
-                  </Link>
-                  {!n.read && (
-                    <button onClick={() => markAsRead(n.id)} style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", fontWeight: "600" }}>
-                      Marcar como leída
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       {showForm && (
         <section className="card" style={{ maxWidth: "500px", margin: "0 auto 3rem" }}>
