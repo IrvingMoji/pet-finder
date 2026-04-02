@@ -224,10 +224,10 @@ function ChatContent() {
               {sharedPhotos.length > 0 && (
                 <button 
                   className="btn" 
-                  style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 1rem", fontSize: "0.85rem", border: "1px solid var(--secondary)", background: "white", color: "var(--secondary)", fontWeight: "600", borderRadius: "8px" }}
+                  style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.5rem 0.75rem", fontSize: "0.85rem", border: "1px solid var(--secondary)", background: "white", color: "var(--secondary)", fontWeight: "600", borderRadius: "8px" }}
                   onClick={() => setShowGallery(true)}
                 >
-                  📸 Galería ({sharedPhotos.length})
+                  📸 <span className="desktop-only">Galería (</span>{sharedPhotos.length}<span className="desktop-only">)</span>
                 </button>
               )}
               {sharedLocation && (
@@ -235,9 +235,9 @@ function ChatContent() {
                   href={`https://maps.google.com/?q=${sharedLocation.lat},${sharedLocation.lng}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 1rem", fontSize: "0.85rem", border: "1px solid var(--primary)", background: "white", color: "var(--primary)", fontWeight: "600", borderRadius: "8px", textDecoration: "none" }}
+                  style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.5rem 0.75rem", fontSize: "0.85rem", border: "1px solid var(--primary)", background: "white", color: "var(--primary)", fontWeight: "600", borderRadius: "8px", textDecoration: "none" }}
                 >
-                  📍 Ubicación
+                  📍<span className="desktop-only"> Ubicación</span>
                 </a>
               )}
             </header>
