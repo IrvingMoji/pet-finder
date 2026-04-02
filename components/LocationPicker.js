@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, memo } from "react";
+import { useState, useCallback, useEffect, memo } from "react";
 import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 
 const containerStyle = {
@@ -20,6 +20,14 @@ function LocationPicker({ onLocationSelect, initialPosition = null }) {
 
   const [position, setPosition] = useState(initialPosition);
 
+  // Si recibimos una posición inicial (GPS), notificar al padre automáticamente
+  useEffect(() => {
+    if (initialPosition) {
+      setPosition(initialPosition);
+      onLocationSelect(initialPosition);
+    }
+  }, [initialPosition?.lat, initialPosition?.lng]);
+
   const onClick = useCallback((e) => {
     const newPos = { lat: e.latLng.lat(), lng: e.latLng.lng() };
     setPosition(newPos);
@@ -31,7 +39,7 @@ function LocationPicker({ onLocationSelect, initialPosition = null }) {
       <GoogleMap
         mapContainerStyle={containerStyle}
         center={position || center}
-        zoom={13}
+        zoom={position ? 16 : 13}
         onClick={onClick}
         options={{
           disableDefaultUI: false,

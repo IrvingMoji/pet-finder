@@ -16,6 +16,7 @@ function ChatContent() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [sharedPhotos, setSharedPhotos] = useState([]);
+  const [sharedLocation, setSharedLocation] = useState(null);
   const [showGallery, setShowGallery] = useState(false);
   const messagesEndRef = useRef(null);
 
@@ -78,13 +79,15 @@ function ChatContent() {
     return () => unsubscribe();
   }, [activeChat]);
 
-  // Recuperar fotos compartidas entre los usuarios
+  // Recuperar fotos y ubicación compartidas al abrir un chat
   useEffect(() => {
     if (activeChat && user) {
       const otherId = activeChat.participants.find(id => id !== user.id);
       dataService.getSharedPhotos(user.id, otherId).then(setSharedPhotos);
+      dataService.getSharedLocation(user.id, otherId).then(setSharedLocation);
     } else {
       setSharedPhotos([]);
+      setSharedLocation(null);
     }
   }, [activeChat, user]);
 
@@ -226,6 +229,16 @@ function ChatContent() {
                 >
                   📸 Galería ({sharedPhotos.length})
                 </button>
+              )}
+              {sharedLocation && (
+                <a
+                  href={`https://maps.google.com/?q=${sharedLocation.lat},${sharedLocation.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 1rem", fontSize: "0.85rem", border: "1px solid var(--primary)", background: "white", color: "var(--primary)", fontWeight: "600", borderRadius: "8px", textDecoration: "none" }}
+                >
+                  📍 Ubicación
+                </a>
               )}
             </header>
 

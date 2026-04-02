@@ -122,6 +122,11 @@ p {
   border-color: var(--primary);
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 @media (max-width: 768px) {
   main {
     padding: 1rem;

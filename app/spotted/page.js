@@ -19,6 +19,8 @@ export default function SpottedPage() {
   const [matchFound, setMatchFound] = useState(null);
   const [viewMode, setViewMode] = useState("form");
   const [myReports, setMyReports] = useState([]);
+  const [gpsCoords, setGpsCoords] = useState(null);
+  const [gpsStatus, setGpsStatus] = useState("detecting"); // 'detecting' | 'found' | 'denied'
 
   const handleLocationSelect = useCallback((coords) => {
     setSpottedPet(prev => ({ ...prev, coords }));
@@ -29,6 +31,28 @@ export default function SpottedPage() {
       router.push("/auth");
     }
   }, [user, loading, router]);
+
+  // Detectar ubicación GPS al cargar la página
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setGpsStatus("denied");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
+        setGpsCoords(coords);
+        setGpsStatus("found");
+        // Pre-llenar las coords del formulario
+        setSpottedPet(prev => ({ ...prev, coords }));
+      },
+      () => {
+        // El usuario rechazó el permiso o hubo error
+        setGpsStatus("denied");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
 
   useEffect(() => {
     if (user && viewMode === "history") {
@@ -212,9 +236,28 @@ export default function SpottedPage() {
             </div>
             <div>
               <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600" }}>¿Dónde la viste?</label>
-              <p style={{ fontSize: "0.85rem", marginBottom: "1rem" }}>Toca en el mapa para marcar la ubicación exacta.</p>
+              
+              {/* Estado del GPS */}
+              {gpsStatus === "detecting" && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem", fontSize: "0.85rem", color: "var(--text-light)" }}>
+                  <span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>⏳</span>
+                  Detectando tu ubicación GPS...
+                </div>
+              )}
+              {gpsStatus === "found" && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem", fontSize: "0.85rem", color: "#2ecc71", fontWeight: "600" }}>
+                  ✅ Ubicación detectada automáticamente. Puedes ajustar tocando el mapa.
+                </div>
+              )}
+              {gpsStatus === "denied" && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem", fontSize: "0.85rem", color: "var(--text-light)" }}>
+                  📍 Toca el mapa para marcar la ubicación exacta.
+                </div>
+              )}
+
               <LocationPicker 
                 onLocationSelect={handleLocationSelect}
+                initialPosition={gpsCoords}
               />
               <input 
                 className="input" 
