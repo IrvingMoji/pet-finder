@@ -93,7 +93,7 @@ Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, con exactam
 }
 
 async function runGeminiMatching({ spottedData, lostPets, reporterId }) {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const petsWithPhoto = lostPets.filter((p) => p.photo);
 
   // Dividir en lotes de BATCH_SIZE
