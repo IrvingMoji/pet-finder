@@ -40,6 +40,27 @@ export default function PetsPage() {
     fetchData();
   }, [user]);
 
+  // Detectar ubicación GPS al abrir el modal de extravío
+  useEffect(() => {
+    if (!showLostModal) return;
+
+    if (!navigator.geolocation) {
+      console.warn("Geolocalización no soportada");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
+        setLostInfo(prev => ({ ...prev, coords }));
+      },
+      (error) => {
+        console.warn("Error obteniendo ubicación:", error.message);
+      },
+      { enableHighAccuracy: true, timeout: 5000 }
+    );
+  }, [showLostModal]);
+
   const handlePhotoChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -266,6 +287,7 @@ export default function PetsPage() {
                 <p style={{ fontSize: "0.8rem", color: "var(--text-light)", marginBottom: "0.5rem" }}>Marca la ubicación en el mapa.</p>
                 <LocationPicker 
                   onLocationSelect={handleLocationSelect}
+                  initialPosition={lostInfo.coords}
                 />
                 <input 
                   type="text" 
@@ -278,7 +300,17 @@ export default function PetsPage() {
               </div>
               <div style={{ display: "flex", gap: "1rem" }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Reportar</button>
-                <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowLostModal(null)}>Cerrar</button>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  style={{ flex: 1 }} 
+                  onClick={() => {
+                    setShowLostModal(null);
+                    setLostInfo({ date: "", location: "", coords: null, notes: "" });
+                  }}
+                >
+                  Cerrar
+                </button>
               </div>
             </form>
           </div>
