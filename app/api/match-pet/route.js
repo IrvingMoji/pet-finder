@@ -8,7 +8,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // 5 TPM → 1 solicitud cada 13s entre lotes
 const BATCH_SIZE = 100;         // Mascotas por lote (1 solicitud = hasta 100 fotos)
 const DELAY_BETWEEN_BATCHES = 13000; // ms entre cada lote (respeta 5 TPM)
-const MATCH_THRESHOLD = 75;
+const MATCH_THRESHOLD = 50;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -57,10 +57,10 @@ ${petList}
 Para CADA mascota de la lista, compara su imagen con la Imagen 1 y determina si podrían ser el mismo animal.
 Evalúa: raza, color de pelaje, patrones/manchas, tamaño aproximado, forma de las orejas y rasgos faciales distintivos.
 
-Sé estricto y conservador. Solo puntúa por encima de 75 si hay características físicas específicas y concretas que coincidan claramente entre las dos imágenes. No confundas por especie similar.
+Considera que las fotos pueden tener distintos ángulos, iluminación o el animal puede estar en movimiento. Sé equilibrado: si hay indicios razonables de que se trata del mismo animal (misma combinación de colores, manchas específicas o fisonomía similar), otorga un puntaje superior a 50. El objetivo es no descartar falsos negativos por mala calidad de imagen.
 
 Responde ÚNICAMENTE con un array JSON válido, sin texto adicional, con exactamente ${validPets.length} elementos:
-[{"petId": "<id>", "score": <entero 0-100>, "reasoning": "<2 oraciones en español explicando por qué sí o no coinciden>"}]`;
+[{"petId": "<id>", "score": <entero 0-100>, "reasoning": "<2 oraciones en español explicando por qué coinciden o no>"}]`;
 
   const result = await model.generateContent([prompt, spottedPart, ...petParts]);
   const text = result.response.text().trim();
